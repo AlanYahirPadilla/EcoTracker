@@ -1,66 +1,92 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+🌱 EcoTracker
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+EcoTracker es una plataforma digital desarrollada con Laravel y React que promueve, gestiona y rastrea el reciclaje en el Centro Universitario de Ciencias Exactas e Ingenierías (CUCEI). Su objetivo es motivar a los estudiantes mediante recompensas y reconocimiento por sus acciones ecológicas.
 
-## About Laravel
+📌 Características Principales
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+📋 Registro de reciclaje: Los usuarios ingresan los materiales reciclados y su cantidad.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+✅ Validación de registros: Los encargados aprueban o rechazan los datos enviados.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+🎯 Sistema de puntos: Cada material reciclado otorga puntos que pueden canjearse.
 
-## Learning Laravel
+🏆 Recompensas: Beneficios como descuentos en cafetería o puntos extra en materias.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+📊 Estadísticas y ranking: Seguimiento del impacto personal y competitividad entre estudiantes.
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+🚀 Instalación y Configuración
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+1️⃣ Requisitos Previos
 
-## Laravel Sponsors
+Asegúrate de tener instalado:
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+PHP 8+
 
-### Premium Partners
+Composer
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+Node.js y npm
 
-## Contributing
+MySQL
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Laravel y React
 
-## Code of Conduct
+2️⃣ Clonar el Repositorio
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+git clone https://github.com/AlanYahirPadilla/EcoTracker.git
+cd EcoTracker
 
-## Security Vulnerabilities
+3️⃣ Instalar Dependencias
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+composer install
+npm install
 
-## License
+4️⃣ Configurar el Archivo .env
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Crea una copia del archivo de entorno:
+
+cp .env.example .env
+
+Configura la base de datos y otras variables necesarias.
+
+5️⃣ Generar Claves y Migrar la Base de Datos
+
+php artisan key:generate
+php artisan migrate --seed
+
+6️⃣ Ejecutar el Proyecto
+
+php artisan serve
+npm run dev
+
+El sitio estará disponible en http://127.0.0.1:8000
+
+🎭 Roles y Permisos
+
+Administrador: Gestiona usuarios, reportes y configuraciones.
+
+Encargado de reciclaje: Valida registros de reciclaje.
+
+Usuario (Estudiante): Registra reciclaje, acumula puntos y accede a recompensas.
+
+🎨 Tecnologías Usadas
+
+Backend: Laravel
+
+Frontend: React + Bootstrap
+
+Base de Datos: MySQL + HeidiSQL
+
+👥 Equipo de Desarrollo
+
+Alan Yahir Padilla Venegas - Administrador de Base de Datos
+
+Romina Jacqueline Aguirre Velazco - Backend & Coordinación
+
+Nestor Fernando Peregrina Castro - Frontend
+
+📜 Licencia
+
+Este proyecto está licenciado bajo la MIT License.
+
+🌿 Juntos podemos hacer del mundo un lugar más verde con EcoTracker! ♻️
+
