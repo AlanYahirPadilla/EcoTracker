@@ -120,4 +120,9 @@ class RewardController extends Controller
         $reward->delete();
         return redirect()->back()->with('success', 'Recompensa eliminada correctamente');
     }
+
+    public function history()
+{
+    return Inertia::render('RewardsHistory');
+}
 }
