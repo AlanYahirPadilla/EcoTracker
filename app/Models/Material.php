@@ -13,7 +13,15 @@ class Material extends Model
         'name',
         'description',
         'points_per_unit',
-        'active'
+        'weight_per_unit',
+        'is_active'
+    ];
+
+    // Asegurarse de que estos campos sean tratados como booleanos
+    protected $casts = [
+        'is_active' => 'boolean',
+        'weight_per_unit' => 'float',
+        'points_per_unit' => 'integer',
     ];
 
     public function recyclingRecords()
@@ -21,3 +29,4 @@ class Material extends Model
         return $this->hasMany(RecyclingRecord::class);
     }
 }
+

@@ -14,7 +14,7 @@ class Reward extends Model
         'description',
         'points_cost',
         'category',
-        'active'
+        'is_active'
     ];
 
     public function redemptions()
@@ -22,3 +22,4 @@ class Reward extends Model
         return $this->hasMany(RewardRedemption::class);
     }
 }
+

@@ -4,31 +4,68 @@ namespace App\Http\Controllers;
 
 use App\Models\Reward;
 use App\Models\RewardRedemption;
-use App\Models\User; // Añadir esta importación
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 class RewardController extends Controller
 {
     public function index()
     {
-        $rewards = Reward::where('active', true)->get();
+        // Obtener todas las recompensas y pasarlas directamente a la vista
+        $rewards = Reward::all();
+        
+        return Inertia::render('Rewards', [
+            'rewards' => $rewards
+        ]);
+    }
+    
+    public function list()
+    {
+        $rewards = Reward::all();
         return response()->json($rewards);
     }
-
+    
+    public function history()
+    {
+        // Obtener el usuario autenticado de manera explícita
+        $user = Auth::user();
+        
+        // Verificar que el usuario esté autenticado
+        if (!$user) {
+            return redirect()->route('login');
+        }
+        
+        // Filtrar explícitamente por el ID del usuario autenticado
+        $redemptions = RewardRedemption::where('user_id', $user->id)
+            ->with('reward')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($redemption) {
+                return [
+                    'id' => $redemption->id,
+                    'date' => $redemption->created_at->format('Y-m-d'),
+                    'reward' => $redemption->reward->name,
+                    'points' => $redemption->points_spent,
+                    'code' => $redemption->redemption_code,
+                    'status' => $redemption->status === 'completed' ? 'Canjeado' : 'Pendiente',
+                    'redeemedAt' => $redemption->status === 'completed' ? $redemption->updated_at->format('Y-m-d') : null,
+                ];
+            });
+        
+        // Depuración: registrar el ID del usuario y la cantidad de redenciones
+        \Log::info('User ID: ' . $user->id . ', Redemptions count: ' . $redemptions->count());
+        
+        return Inertia::render('RewardsHistory', [
+            'redeemHistory' => $redemptions
+        ]);
+    }
+    
     public function redeem(Request $request, Reward $reward)
     {
         $user = Auth::user();
         
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Usuario no autenticado'
-            ], 401);
-        }
-        
+        // Verificar si el usuario tiene suficientes puntos
         if ($user->points < $reward->points_cost) {
             return response()->json([
                 'success' => false,
@@ -36,20 +73,21 @@ class RewardController extends Controller
             ], 400);
         }
         
-        // Generar código de canje único
-        $redemptionCode = 'ECO-' . strtoupper(Str::random(8)) . '-REWARD';
+        // Generar código de canje
+        $redemptionCode = 'ECO-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-REWARD';
         
         // Crear registro de canje
-        $redemption = RewardRedemption::create([
-            'user_id' => $user->id,
-            'reward_id' => $reward->id,
-            'points_spent' => $reward->points_cost,
-            'redemption_code' => $redemptionCode,
-            'status' => 'pending'
-        ]);
+        $redemption = new RewardRedemption();
+        $redemption->user_id = $user->id;
+        $redemption->reward_id = $reward->id;
+        $redemption->points_spent = $reward->points_cost;
+        $redemption->redemption_code = $redemptionCode;
+        $redemption->status = 'pending';
+        $redemption->save();
         
-        // Restar puntos al usuario - usar el modelo User para actualizar
-        User::where('id', $user->id)->decrement('points', $reward->points_cost);
+        // Restar puntos al usuario
+        $user->points -= $reward->points_cost;
+        $user->save();
         
         return response()->json([
             'success' => true,
@@ -57,72 +95,5 @@ class RewardController extends Controller
             'redemption_code' => $redemptionCode
         ]);
     }
-
-    // Para administradores
-    public function adminIndex()
-    {
-        // Verificar si el usuario tiene permisos de administrador
-        if (!Auth::user() || Auth::user()->role !== 'admin') {
-            abort(403, 'No tienes permiso para acceder a esta página');
-        }
-        
-        $rewards = Reward::all();
-        return Inertia::render('Admin/Rewards/Index', [
-            'rewards' => $rewards
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        // Verificar si el usuario tiene permisos de administrador
-        if (!Auth::user() || Auth::user()->role !== 'admin') {
-            abort(403, 'No tienes permiso para realizar esta acción');
-        }
-        
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'points_cost' => 'required|integer|min:1',
-            'category' => 'required|string|max:255',
-            'active' => 'boolean'
-        ]);
-
-        $reward = Reward::create($validated);
-        return redirect()->back()->with('success', 'Recompensa creada correctamente');
-    }
-
-    public function update(Request $request, Reward $reward)
-    {
-        // Verificar si el usuario tiene permisos de administrador
-        if (!Auth::user() || Auth::user()->role !== 'admin') {
-            abort(403, 'No tienes permiso para realizar esta acción');
-        }
-        
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'points_cost' => 'required|integer|min:1',
-            'category' => 'required|string|max:255',
-            'active' => 'boolean'
-        ]);
-
-        $reward->update($validated);
-        return redirect()->back()->with('success', 'Recompensa actualizada correctamente');
-    }
-
-    public function destroy(Reward $reward)
-    {
-        // Verificar si el usuario tiene permisos de administrador
-        if (!Auth::user() || Auth::user()->role !== 'admin') {
-            abort(403, 'No tienes permiso para realizar esta acción');
-        }
-        
-        $reward->delete();
-        return redirect()->back()->with('success', 'Recompensa eliminada correctamente');
-    }
-
-    public function history()
-{
-    return Inertia::render('RewardsHistory');
 }
-}
+

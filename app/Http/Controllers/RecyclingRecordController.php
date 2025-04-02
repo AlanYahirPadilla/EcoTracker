@@ -6,87 +6,104 @@ use App\Models\RecyclingRecord;
 use App\Models\Material;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth; // Añadir esta importación
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class RecyclingRecordController extends Controller
 {
     public function index()
     {
-        $records = RecyclingRecord::with('material')
-            ->where('user_id', Auth::id()) // Usar Auth::id() en lugar de auth()->id()
+        $records = RecyclingRecord::where('user_id', auth()->id())
+            ->with('material')
             ->orderBy('created_at', 'desc')
             ->get();
             
         return response()->json($records);
     }
-
+    
     public function store(Request $request)
     {
         $validated = $request->validate([
             'material_id' => 'required|exists:materials,id',
             'quantity' => 'required|integer|min:1|max:50',
-            'location' => 'required|string|max:255',
-            'comments' => 'nullable|string'
+            'location' => 'required|string',
+            'comments' => 'nullable|string',
         ]);
-
-        $material = Material::findOrFail($validated['material_id']);
         
-        // Generar número de ticket único
-        $ticketNumber = 'ECO-' . strtoupper(Str::random(8));
+        // Obtener el material para calcular puntos
+        $material = Material::find($validated['material_id']);
         
-        $record = RecyclingRecord::create([
-            'user_id' => Auth::id(), // Usar Auth::id() en lugar de auth()->id()
-            'material_id' => $validated['material_id'],
-            'quantity' => $validated['quantity'],
-            'location' => $validated['location'],
-            'comments' => $validated['comments'],
-            'status' => 'pending',
-            'ticket_number' => $ticketNumber
-        ]);
-
+        // Crear un nuevo registro de reciclaje
+        $record = new RecyclingRecord();
+        $record->user_id = auth()->id();
+        $record->material_id = $validated['material_id'];
+        $record->quantity = $validated['quantity'];
+        $record->location = $validated['location'];
+        $record->comments = $validated['comments'] ?? null;
+        $record->status = 'pending';
+        
+        // Calcular puntos estimados
+        $record->points_earned = $material->points_per_unit * $validated['quantity'];
+        
+        // Generar código de ticket
+        $record->ticket_number = 'ECO-' . rand(1000, 9999);
+        
+        $record->save();
+        
         return response()->json([
             'success' => true,
-            'message' => 'Registro creado correctamente',
-            'ticket_number' => $ticketNumber,
-            'estimated_points' => $material->points_per_unit * $validated['quantity']
+            'message' => 'Registro de reciclaje enviado correctamente',
+            'ticket_number' => $record->ticket_number
         ]);
     }
-
+    
     public function pendingValidations()
     {
-        // Verificar si el usuario tiene permisos para ver validaciones pendientes
-        if (!Auth::user() || !in_array(Auth::user()->role, ['admin', 'recycling_manager'])) {
-            abort(403, 'No tienes permiso para acceder a esta información');
-        }
-        
-        $pendingRecords = RecyclingRecord::with(['user', 'material'])
-            ->where('status', 'pending')
+        $pendingRecords = RecyclingRecord::where('status', 'pending')
+            ->with(['user', 'material'])
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($record) {
+                return [
+                    'id' => $record->id,
+                    'user' => [
+                        'id' => $record->user->id,
+                        'name' => $record->user->name,
+                        'email' => $record->user->email
+                    ],
+                    'material' => [
+                        'id' => $record->material->id,
+                        'name' => $record->material->name,
+                        'points_per_unit' => $record->material->points_per_unit
+                    ],
+                    'quantity' => $record->quantity,
+                    'location' => $record->location,
+                    'comments' => $record->comments,
+                    'ticket_number' => $record->ticket_number,
+                    'points_earned' => $record->points_earned,
+                    'created_at' => $record->created_at->format('Y-m-d H:i:s')
+                ];
+            });
             
         return response()->json($pendingRecords);
     }
-
-    public function approve(RecyclingRecord $record)
+    
+    public function approve(Request $request, RecyclingRecord $record)
     {
-        // Verificar si el usuario tiene permisos para aprobar registros
-        if (!Auth::user() || !in_array(Auth::user()->role, ['admin', 'recycling_manager'])) {
-            abort(403, 'No tienes permiso para realizar esta acción');
+        // Verificar que el registro esté pendiente
+        if ($record->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este registro ya ha sido procesado'
+            ], 400);
         }
         
-        $material = $record->material;
-        $pointsEarned = $material->points_per_unit * $record->quantity;
+        // Actualizar el estado del registro
+        $record->status = 'approved';
+        $record->save();
         
-        $record->update([
-            'status' => 'approved',
-            'points_earned' => $pointsEarned
-        ]);
-        
-        // Actualizar puntos del usuario
-        $user = $record->user;
-        $user->points += $pointsEarned;
+        // Actualizar los puntos del usuario
+        $user = User::find($record->user_id);
+        $user->points += $record->points_earned;
         $user->save();
         
         return response()->json([
@@ -94,18 +111,20 @@ class RecyclingRecordController extends Controller
             'message' => 'Registro aprobado correctamente'
         ]);
     }
-
-    public function reject(RecyclingRecord $record)
+    
+    public function reject(Request $request, RecyclingRecord $record)
     {
-        // Verificar si el usuario tiene permisos para rechazar registros
-        if (!Auth::user() || !in_array(Auth::user()->role, ['admin', 'recycling_manager'])) {
-            abort(403, 'No tienes permiso para realizar esta acción');
+        // Verificar que el registro esté pendiente
+        if ($record->status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este registro ya ha sido procesado'
+            ], 400);
         }
         
-        $record->update([
-            'status' => 'rejected',
-            'points_earned' => 0
-        ]);
+        // Actualizar el estado del registro
+        $record->status = 'rejected';
+        $record->save();
         
         return response()->json([
             'success' => true,
@@ -113,3 +132,5 @@ class RecyclingRecordController extends Controller
         ]);
     }
 }
+
+

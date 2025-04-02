@@ -6,12 +6,24 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    public function run()
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
     {
         $this->call([
-            UserSeeder::class,
-            MaterialSeeder::class,
-            RewardSeeder::class
+            RoleSeeder::class,
+            // Otros seeders...
         ]);
+        
+        // Crear un usuario administrador
+        $user = \App\Models\User::factory()->create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => bcrypt('password'),
+        ]);
+        
+        $user->assignRole('admin');
     }
 }
+

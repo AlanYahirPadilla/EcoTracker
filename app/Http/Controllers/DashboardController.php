@@ -5,115 +5,161 @@ namespace App\Http\Controllers;
 use App\Models\RecyclingRecord;
 use App\Models\Reward;
 use App\Models\RewardRedemption;
-use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
+// Añadir la importación del modelo Activity
+use App\Models\Activity;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        if (Auth::user()->role === 'admin') {
-            return redirect()->route('admin.dashboard');
-        }
-
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
         
-        // Obtener historial de reciclaje
-        $recyclingHistory = $user->recycling_records()
-            ->with('material')
-            ->orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
-            
-        // Obtener estadísticas de materiales reciclados
-        $materialStats = RecyclingRecord::with('material')
-            ->where('user_id', $user->id)
-            ->where('status', 'approved')
-            ->get()
-            ->groupBy('material.name')
-            ->map(function ($group) {
-                return [
-                    'quantity' => $group->sum('quantity'),
-                    'points' => $group->sum('points_earned')
+            // Verificar que el usuario esté autenticado
+            if (!$user) {
+                Log::error('Intento de acceso al dashboard sin autenticación');
+                return redirect()->route('login');
+            }
+        
+            Log::info('Acceso al dashboard', ['user_id' => $user->id]);
+        
+            // Obtener estadísticas del usuario con manejo de errores
+            try {
+                $stats = [
+                    'totalRecycled' => RecyclingRecord::where('user_id', $user->id)
+                        ->where('status', 'approved')
+                        ->sum('quantity'),
+                    
+                    'pendingTickets' => RecyclingRecord::where('user_id', $user->id)
+                        ->where('status', 'pending')
+                        ->count(),
+                    
+                    'totalPoints' => $user->points,
+                    
+                    'redeemedRewards' => RewardRedemption::where('user_id', $user->id)
+                        ->count()
                 ];
-            });
+            } catch (\Exception $e) {
+                Log::error('Error al obtener estadísticas: ' . $e->getMessage(), [
+                    'user_id' => $user->id,
+                    'trace' => $e->getTraceAsString()
+                ]);
             
-        // Obtener recompensas disponibles
-        $availableRewards = Reward::where('active', true)
-            ->where('points_cost', '<=', $user->points)
-            ->take(3)
-            ->get();
+                // Si hay un error, usar valores predeterminados
+                $stats = [
+                    'totalRecycled' => 0,
+                    'pendingTickets' => 0,
+                    'totalPoints' => $user->points ?? 0,
+                    'redeemedRewards' => 0
+                ];
+            }
+        
+            // Obtener últimos registros de reciclaje con manejo de errores
+            try {
+                $recentRecords = RecyclingRecord::where('user_id', $user->id)
+                    ->with('material')
+                    ->orderBy('created_at', 'desc')
+                    ->take(5)
+                    ->get()
+                    ->map(function ($record) {
+                        return [
+                            'id' => $record->id,
+                            'date' => $record->created_at->format('Y-m-d'),
+                            'material' => $record->material->name,
+                            'quantity' => $record->quantity,
+                            'points' => $record->points_earned,
+                            'status' => $this->translateStatus($record->status)
+                        ];
+                    });
+            } catch (\Exception $e) {
+                Log::error('Error al obtener registros recientes: ' . $e->getMessage(), [
+                    'user_id' => $user->id,
+                    'trace' => $e->getTraceAsString()
+                ]);
             
-        return Inertia::render('Dashboard', [
-            'recyclingHistory' => $recyclingHistory,
-            'materialStats' => $materialStats,
-            'availableRewards' => $availableRewards,
-            'userPoints' => $user->points
-        ]);
+                // Si hay un error, usar un array vacío
+                $recentRecords = [];
+            }
+            
+            // Obtener recompensas disponibles con manejo de errores
+            try {
+                $availableRewards = Reward::where('is_active', true)
+                    ->orderBy('points_cost', 'asc')
+                    ->take(3)
+                    ->get();
+            } catch (\Exception $e) {
+                Log::error('Error al obtener recompensas disponibles: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+            
+                // Si hay un error, usar un array vacío
+                $availableRewards = [];
+            }
+        
+            // Obtener la próxima actividad
+            try {
+                $nextActivity = Activity::where('is_active', true)
+                    ->where(function($query) {
+                        $query->whereNull('date')
+                            ->orWhere('date', '>=', now()->format('Y-m-d'));
+                    })
+                    ->orderBy('date')
+                    ->first();
+                
+                if ($nextActivity) {
+                    $nextActivity = [
+                        'date' => $nextActivity->date ? $nextActivity->date->format('Y-m-d') : 'Hoy',
+                        'timeStart' => $nextActivity->time_start,
+                        'timeEnd' => $nextActivity->time_end,
+                        'location' => $nextActivity->location,
+                        'building' => $nextActivity->building,
+                        'description' => $nextActivity->description
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::error('Error al obtener próxima actividad: ' . $e->getMessage(), [
+                    'trace' => $e->getTraceAsString()
+                ]);
+            
+                // Si hay un error, usar un valor predeterminado
+                $nextActivity = null;
+            }
+            
+            return Inertia::render('Dashboard', [
+                'stats' => $stats,
+                'recentRecords' => $recentRecords,
+                'availableRewards' => $availableRewards,
+                'nextActivity' => $nextActivity
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error general en el dashboard: ' . $e->getMessage(), [
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        
+            // En caso de error, mostrar una página de error específica para el dashboard
+            return Inertia::render('Dashboard/Error', [
+                'status' => 500,
+                'message' => 'Ha ocurrido un error al cargar el dashboard. Por favor, inténtalo de nuevo.'
+            ]);
+        }
     }
 
-    public function adminDashboard()
+    private function translateStatus($status)
     {
-        // Verificar si el usuario tiene permisos de administrador
-        if (!Auth::user() || Auth::user()->role !== 'admin') {
-            abort(403, 'No tienes permiso para acceder a esta página');
+        switch ($status) {
+            case 'pending':
+                return 'Pendiente';
+            case 'approved':
+                return 'Aprobado';
+            case 'rejected':
+                return 'Rechazado';
+            default:
+                return 'Desconocido';
         }
-        
-        // Estadísticas generales
-        $totalUsers = User::count();
-        $totalMaterialRecycled = RecyclingRecord::where('status', 'approved')->sum('quantity');
-        $totalPointsRedeemed = RewardRedemption::sum('points_spent');
-        
-        // Validaciones pendientes
-        $pendingValidations = RecyclingRecord::with(['user', 'material'])
-            ->where('status', 'pending')
-            ->orderBy('created_at', 'desc')
-            ->take(10)
-            ->get();
-            
-        // Distribución de materiales
-        $materialDistribution = RecyclingRecord::where('status', 'approved')
-            ->join('materials', 'recycling_records.material_id', '=', 'materials.id')
-            ->selectRaw('materials.name, SUM(recycling_records.quantity) as total')
-            ->groupBy('materials.name')
-            ->get();
-            
-        $totalMaterialCount = $materialDistribution->sum('total');
-        
-        $materialDistribution = $materialDistribution->map(function ($item) use ($totalMaterialCount) {
-            return [
-                'name' => $item->name,
-                'total' => $item->total,
-                'percentage' => $totalMaterialCount > 0 ? round(($item->total / $totalMaterialCount) * 100, 1) : 0
-            ];
-        });
-            
-        // Actividad reciente
-        $recentActivity = RecyclingRecord::with(['user', 'material'])
-            ->orderBy('created_at', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function ($record) {
-                return [
-                    'id' => $record->id,
-                    'user' => $record->user->name,
-                    'action' => 'Registro de reciclaje',
-                    'details' => $record->material->name . ' (' . $record->quantity . ')',
-                    'date' => $record->created_at->format('Y-m-d'),
-                    'status' => $record->status
-                ];
-            });
-            
-        return Inertia::render('Admin/Dashboard', [
-            'totalUsers' => $totalUsers,
-            'totalMaterialRecycled' => $totalMaterialRecycled,
-            'totalPointsRedeemed' => $totalPointsRedeemed,
-            'pendingValidations' => $pendingValidations,
-            'materialDistribution' => $materialDistribution,
-            'recentActivity' => $recentActivity
-        ]);
     }
 }
+

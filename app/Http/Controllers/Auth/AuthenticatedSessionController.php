@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Providers\RouteServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Log;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -27,13 +29,34 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request)
     {
-        $request->authenticate();
+        try {
+            $request->authenticate();
 
-        $request->session()->regenerate();
+            $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+            // Registrar información del usuario autenticado
+            $user = Auth::user();
+            Log::info('Usuario autenticado correctamente', [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email
+            ]);
+
+            return redirect()->intended(RouteServiceProvider::HOME);
+        } catch (\Exception $e) {
+            Log::error('Error durante la autenticación: ' . $e->getMessage(), [
+                'email' => $request->email,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // En lugar de lanzar la excepción, redirigir a una página de error
+            return Inertia::render('Auth/Error', [
+                'status' => 500,
+                'message' => 'Ha ocurrido un error durante el inicio de sesión. Por favor, inténtalo de nuevo.'
+            ]);
+        }
     }
 
     /**
@@ -50,3 +73,4 @@ class AuthenticatedSessionController extends Controller
         return redirect('/');
     }
 }
+
