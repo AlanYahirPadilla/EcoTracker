@@ -1,20 +1,39 @@
-import { forwardRef, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
-export default forwardRef(function TextInput({ type = 'text', className = '', isFocused = false, ...props }, ref) {
-    const input = useRef(null);
+export default function TextInput({
+    type = 'text',
+    name,
+    id,
+    value,
+    className = '',
+    autoComplete,
+    required,
+    isFocused = false,
+    handleChange,
+    ...props
+}) {
+    const input = useRef();
 
     useEffect(() => {
-        if (isFocused) {
+        if (isFocused && input.current) {
             input.current.focus();
         }
     }, [isFocused]);
 
     return (
         <input
-            {...props}
             type={type}
-            className={`border-gray-300 focus:border-green-500 focus:ring-green-500 rounded-md shadow-sm ${className}`}
-            ref={ref || input}
+            name={name}
+            id={id}
+            value={value}
+            className={
+                `border-gray-300 focus:border-green-500 focus:ring-green-500 rounded-md shadow-sm ${className}`
+            }
+            ref={input}
+            autoComplete={autoComplete}
+            required={required}
+            onChange={(e) => handleChange ? handleChange(e) : null}
+            {...props}
         />
     );
-});
+}

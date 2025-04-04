@@ -174,7 +174,7 @@ export default function Authenticated({ user, header, children }) {
 
           <div className="p-4 border-t">
             <Link
-              href="/profile/edit"
+              href="/profile"
               className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2"} p-2 rounded-md hover:bg-green-50 transition-colors text-gray-700`}
               title={isCollapsed ? "Mi Perfil" : ""}
             >
@@ -280,7 +280,7 @@ export default function Authenticated({ user, header, children }) {
               </div>
 
               <div className="mt-3 space-y-1">
-                <ResponsiveNavLink href="/profile/edit">
+                <ResponsiveNavLink href="/profile">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4" />
                     <span>Perfil</span>

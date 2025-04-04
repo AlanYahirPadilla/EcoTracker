@@ -13,17 +13,27 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RoleSeeder::class,
-            // Otros seeders...
+            MaterialSeeder::class,
+            RewardSeeder::class,
+            UserSeeder::class,
+            // Otros seeders que tengas...
         ]);
         
-        // Crear un usuario administrador
-        $user = \App\Models\User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@example.com',
-            'password' => bcrypt('password'),
-        ]);
+        // Crear un usuario administrador si no está en UserSeeder
+        $admin = \App\Models\User::where('email', 'admin@example.com')->first();
         
-        $user->assignRole('admin');
+        if (!$admin) {
+            $admin = \App\Models\User::factory()->create([
+                'name' => 'Admin User',
+                'email' => 'admin@example.com',
+                'password' => bcrypt('password'),
+            ]);
+        }
+        
+        // Asignar rol solo si no lo tiene ya
+        if ($admin && !$admin->hasRole('admin')) {
+            $admin->assignRole('admin');
+        }
     }
 }
 

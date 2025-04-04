@@ -10,9 +10,73 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\RecyclingRecord;
+use App\Models\RewardRedemption;
 
 class ProfileController extends Controller
 {
+    /**
+     * Display the user's profile.
+     */
+    public function show(Request $request): Response
+    {
+        $user = $request->user();
+        
+        // Obtener los registros de reciclaje del usuario
+        $recyclingRecords = RecyclingRecord::where('user_id', $user->id)
+            ->with('material')
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($record) {
+                return [
+                    'id' => $record->id,
+                    'material' => $record->material->name,
+                    'quantity' => $record->quantity,
+                    'points' => $record->points_earned,
+                    'date' => $record->created_at->format('Y-m-d'),
+                    'status' => $record->status
+                ];
+            });
+        
+        // Obtener los canjes de recompensas del usuario
+        $rewardRedemptions = RewardRedemption::where('user_id', $user->id)
+            ->with('reward')
+            ->orderBy('created_at', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function ($redemption) {
+                return [
+                    'id' => $redemption->id,
+                    'reward' => $redemption->reward->name,
+                    'points' => $redemption->reward->points_cost,
+                    'date' => $redemption->created_at->format('Y-m-d'),
+                    'status' => $redemption->status
+                ];
+            });
+        
+        // Calcular estadísticas
+        $totalRecycled = RecyclingRecord::where('user_id', $user->id)
+            ->where('status', 'approved')
+            ->count();
+            
+        $totalPoints = $user->points;
+        
+        $totalRedemptions = RewardRedemption::where('user_id', $user->id)
+            ->where('status', 'approved')
+            ->count();
+        
+        return Inertia::render('Profile/Show', [
+            'recyclingRecords' => $recyclingRecords,
+            'rewardRedemptions' => $rewardRedemptions,
+            'stats' => [
+                'totalRecycled' => $totalRecycled,
+                'totalPoints' => $totalPoints,
+                'totalRedemptions' => $totalRedemptions
+            ]
+        ]);
+    }
+
     /**
      * Display the user's profile form.
      */

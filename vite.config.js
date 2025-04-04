@@ -15,4 +15,15 @@ export default defineConfig({
             '@': '/resources/js',
         },
     },
+    optimizeDeps: {
+        esbuildOptions: {
+            loader: {
+                '.js': 'jsx',
+            },
+        },
+    },
+    esbuild: {
+        loader: 'jsx',
+        include: ['**/*.js', '**/*.jsx'],
+    },
 });
