@@ -102,6 +102,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/tickets', [TicketController::class, 'index'])->name('tickets');
     Route::get('/levels', [LevelSystemController::class, 'index'])->name('levels');
 
+    Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
+    Route::get('/activities/{id}', [ActivityController::class, 'show'])->name('activities.show');
+    Route::post('/activities/{id}/register', [ActivityController::class, 'register'])->name('activities.register');
+    Route::post('/activities/{id}/cancel', [ActivityController::class, 'cancel'])->name('activities.cancel');
+    Route::get('/my-activities', [ActivityController::class, 'myActivities'])->name('activities.my');
+    
     // Admin routes
     Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');

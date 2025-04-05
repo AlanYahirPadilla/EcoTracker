@@ -107,43 +107,73 @@ class ActivityController extends Controller
     /**
      * Obtener actividades próximas para el dashboard
      */
+    /**
+     * Obtener actividades próximas para el dashboard.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function upcoming()
     {
         try {
-            $activities = Activity::where(function($query) {
-                    $now = Carbon::now();
+            $now = now();
+        
+            // Obtener actividades futuras o en curso
+            $activities = Activity::where('is_active', true)
+                ->where(function($query) use ($now) {
                     // Actividades de hoy que aún no han terminado
                     $query->whereDate('date', $now->toDateString())
-                          ->where('time_end', '>=', $now->format('H:i:s'));
+                        ->where(function($q) use ($now) {
+                            $currentTime = $now->format('H:i:s');
+                            $q->where('time_end', '>=', $currentTime);
+                        });
                 })
-                ->orWhere(function($query) {
+                ->orWhere(function($query) use ($now) {
                     // Actividades futuras
-                    $query->whereDate('date', '>', Carbon::now()->toDateString());
+                    $query->whereDate('date', '>', $now->toDateString())
+                        ->where('is_active', true);
                 })
-                ->where('is_active', true)
                 ->orderBy('date', 'asc')
                 ->orderBy('time_start', 'asc')
                 ->take(5)
-                ->get()
-                ->map(function ($activity) {
-                    return [
-                        'id' => $activity->id,
-                        'title' => $activity->title ?: 'Actividad de reciclaje',
-                        'description' => $activity->description,
-                        'location' => $activity->location,
-                        'building' => $activity->building,
-                        'date' => $activity->date ? $activity->date->format('d/m/Y') : '',
-                        'time_start' => $activity->time_start,
-                        'time_end' => $activity->time_end,
-                        'points_reward' => $activity->points_reward,
-                        'is_registered' => Auth::check() ? Auth::user()->isRegisteredForActivity($activity) : false,
-                    ];
-                });
+                ->get();
+            
+            // Si no hay actividades, devolver un array vacío
+            if ($activities->isEmpty()) {
+                return response()->json(['activities' => []]);
+            }
+        
+            // Mapear actividades para el frontend
+            $mappedActivities = $activities->map(function ($activity) {
+                $isRegistered = false;
+                if (auth()->check()) {
+                    $isRegistered = auth()->user()->isRegisteredForActivity($activity);
+                }
+            
+                return [
+                    'id' => $activity->id,
+                    'title' => $activity->title ?: 'Actividad de reciclaje',
+                    'description' => $activity->description ?: '',
+                    'location' => $activity->location ?: 'CUCEI',
+                    'building' => $activity->building ?: '',
+                    'date' => $activity->date ? $activity->date->format('d/m/Y') : $now->format('d/m/Y'),
+                    'time_start' => $activity->time_start ?: '09:00',
+                    'time_end' => $activity->time_end ?: '13:00',
+                    'points_reward' => $activity->points_reward ?: 0,
+                    'is_registered' => $isRegistered,
+                ];
+            });
 
-            return response()->json(['activities' => $activities]);
+            return response()->json(['activities' => $mappedActivities]);
         } catch (\Exception $e) {
             \Log::error('Error en upcoming activities: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
+            \Log::error($e->getTraceAsString());
+        
+            // Devolver un error más descriptivo
+            return response()->json([
+                'error' => 'Error al cargar actividades próximas',
+                'message' => $e->getMessage(),
+                'trace' => app()->environment('local') ? $e->getTraceAsString() : null
+            ], 500);
         }
     }
 
