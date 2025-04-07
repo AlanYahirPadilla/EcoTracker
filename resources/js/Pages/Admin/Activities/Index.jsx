@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import AdminLayout from "@/Layouts/AdminLayout"
-import { Head } from "@inertiajs/react"
+import { Head, usePage, router } from "@inertiajs/react"
 import { Calendar, Search, Plus, Edit, Trash, Clock, MapPin } from "lucide-react"
 
 export default function ActivitiesIndex({ auth, activities = [] }) {
@@ -18,6 +18,11 @@ export default function ActivitiesIndex({ auth, activities = [] }) {
     description: "",
     is_active: true,
   })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(null)
+
+  const { csrf_token } = usePage().props
 
   // Filtrar actividades según el término de búsqueda
   const filteredActivities = activities.filter(
@@ -28,6 +33,9 @@ export default function ActivitiesIndex({ auth, activities = [] }) {
   )
 
   const handleOpenModal = (activity = null) => {
+    setError(null)
+    setSuccess(null)
+    
     if (activity) {
       setEditingActivity(activity)
       setFormData({
@@ -57,6 +65,8 @@ export default function ActivitiesIndex({ auth, activities = [] }) {
   const handleCloseModal = () => {
     setShowModal(false)
     setEditingActivity(null)
+    setError(null)
+    setSuccess(null)
   }
 
   const handleChange = (e) => {
@@ -69,9 +79,39 @@ export default function ActivitiesIndex({ auth, activities = [] }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    // Aquí iría la lógica para enviar los datos al servidor
-    console.log("Datos del formulario:", formData)
-    handleCloseModal()
+    setLoading(true)
+    setError(null)
+    
+    if (editingActivity) {
+      // Usar router.post de Inertia con el método _method: 'put'
+      router.post(`/admin/activities/${editingActivity.id}`, {
+        ...formData,
+        _method: 'put' // esto es crucial
+      }, {
+        onSuccess: () => {
+          setSuccess('Actividad actualizada correctamente')
+          setTimeout(() => window.location.reload(), 1500)
+        },
+        onError: (errors) => {
+          console.error('Error:', errors)
+          setError('Ha ocurrido un error al actualizar la actividad')
+          setLoading(false)
+        }
+      })
+    } else {
+      // Crear nueva actividad
+      router.post('/admin/activities', formData, {
+        onSuccess: () => {
+          setSuccess('Actividad creada correctamente')
+          setTimeout(() => window.location.reload(), 1500)
+        },
+        onError: (errors) => {
+          console.error('Error:', errors)
+          setError('Ha ocurrido un error al crear la actividad')
+          setLoading(false)
+        }
+      })
+    }
   }
 
   return (
@@ -231,6 +271,18 @@ export default function ActivitiesIndex({ auth, activities = [] }) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-xl font-bold mb-4">{editingActivity ? "Editar Actividad" : "Nueva Actividad"}</h3>
+            
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
+                {error}
+              </div>
+            )}
+            
+            {success && (
+              <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md">
+                {success}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
@@ -341,15 +393,23 @@ export default function ActivitiesIndex({ auth, activities = [] }) {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 mt-6">
+              <div className="flex justify-end gap-2 mt-6">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  disabled={loading}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center"
+                  disabled={loading}
+                >
+                  {loading && (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></span>
+                  )}
                   {editingActivity ? "Actualizar" : "Crear"}
                 </button>
               </div>

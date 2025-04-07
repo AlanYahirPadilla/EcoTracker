@@ -203,6 +203,3 @@ export default function AllRedemptions({ auth, redemptions = [] }) {
     </AdminLayout>
   )
 }
-
-
-

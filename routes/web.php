@@ -18,6 +18,10 @@ use App\Http\Controllers\Admin\MaterialController as AdminMaterialController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\LevelSystemController;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\RecycleController;
+use App\Http\Controllers\RecyclingManagerController;
+use App\Models\RewardRedemption;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
@@ -63,7 +67,7 @@ Route::get('/', function () {
 
 // Rutas protegidas por autenticación
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Dashboard del usuario - MODIFICADO para redirigir a los administradores
+    // Dashboard del usuario
     Route::get('/dashboard', function () {
         // Añadir logging para depuración
         Log::info('Dashboard route', [
@@ -71,9 +75,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'user_role' => auth()->user() ? auth()->user()->role : null
         ]);
 
-        // Comparación insensible a mayúsculas/minúsculas
-        if (auth()->user() && strtolower(auth()->user()->role) === 'admin') {
-            return redirect()->route('admin.dashboard');
+        // Redirección basada en el rol
+        if (auth()->user()) {
+            $role = strtolower(auth()->user()->role);
+            if ($role === 'admin') {
+                return redirect()->route('admin.dashboard');
+            } elseif ($role === 'recycling_manager') {
+                return redirect()->route('recycling-manager.dashboard');
+            }
         }
         return app(DashboardController::class)->index();
     })->name('dashboard');
@@ -164,13 +173,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/reports/export', [App\Http\Controllers\Admin\ReportController::class, 'exportData'])->name('reports.export');
 
         // Gestión de actividades
-        Route::get('/activities', function () {
-            return Inertia::render('Admin/Activities/Index');
-        })->name('activities');
+        Route::get('/activities', [App\Http\Controllers\Admin\ActivityController::class, 'index'])->name('activities');
         Route::post('/activities', [App\Http\Controllers\Admin\ActivityController::class, 'store'])->name('activities.store');
         Route::put('/activities/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'update'])->name('activities.update');
         Route::delete('/activities/{activity}', [App\Http\Controllers\Admin\ActivityController::class, 'destroy'])->name('activities.destroy');
     });
+
+    // Rutas (dentro del grupo de rutas autenticadas)
+    Route::get('/register-recycling', [RecycleController::class, 'index'])->name('recycling.index');
+    Route::post('/register-recycling', [RecycleController::class, 'store'])->name('recycling.store');
+
+    // Rutas para encargados de reciclaje
+    Route::middleware(['auth'])->prefix('recycling-manager')->name('recycling-manager.')->group(function () {
+        Route::get('/dashboard', [RecyclingManagerController::class, 'dashboard'])->name('dashboard');
+        Route::post('/verify-ticket', [RecyclingManagerController::class, 'verifyTicket'])->name('verify-ticket');
+        Route::post('/complete/{id}', [RecyclingManagerController::class, 'completeRedemption'])->name('complete');
+        Route::get('/history', [RecyclingManagerController::class, 'history'])->name('history');
+        Route::get('/verify-ticket', [RecyclingManagerController::class, 'showVerifyTicketForm'])->name('show-verify-ticket');
+        Route::get('/export-history', [RecyclingManagerController::class, 'exportHistory'])->name('recycling-manager.export-history');
+    });
+
+    // Añade esta ruta junto a las demás rutas de recycling-manager
+    Route::get('/recycling-manager/verify-ticket', [App\Http\Controllers\RecyclingManagerController::class, 'showVerifyTicketForm'])->name('recycling-manager.show-verify-ticket');
+
+    Route::get('/export-history', [RecyclingManagerController::class, 'exportHistory'])->name('export-history');
 });
 
 require __DIR__.'/auth.php';
@@ -223,6 +249,14 @@ Route::get('/debug/admin-dashboard-view', function () {
     }
 });
 
+// Ruta para mostrar el éxito del canje
+Route::get('/reward-success/{code}/{points}', function ($code, $points) {
+    return Inertia::render('RewardSuccess', [
+        'redemption_code' => $code,
+        'remaining_points' => $points
+    ]);
+})->name('reward.success');
+
 // Ruta para verificar conflictos de JavaScript (solo en entorno local)
 if (app()->environment('local')) {
     Route::get('/check-js-conflicts', function () {
@@ -263,3 +297,4 @@ if (app()->environment('local')) {
     });
 }
 
+Route::get('/reports/export', [App\Http\Controllers\Admin\ReportController::class, 'exportData'])->name('admin.reports.export');

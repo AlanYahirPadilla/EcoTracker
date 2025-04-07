@@ -54,24 +54,40 @@ class LevelSystemController extends Controller
             ]
         ];
         
-        // Determinar el nivel actual del usuario
-        $currentLevel = $this->getUserLevel($user->points);
+        // Asegurarnos de usar los puntos actuales del usuario
+        $userPoints = $user->points;
+        
+        // Agregamos un log para depuración
+        \Log::info('Puntos del usuario y nivel en LevelSystemController', [
+            'user_id' => $user->id,
+            'user_points' => $userPoints,
+            'calculated_level' => $this->getUserLevel($userPoints)
+        ]);
+        
+        // Determinar el nivel actual del usuario basado en sus puntos
+        $currentLevel = $this->getUserLevel($userPoints);
         
         // Calcular el progreso hacia el siguiente nivel
         $nextLevel = $this->getNextLevel($currentLevel);
-        $pointsToNextLevel = $this->getPointsToNextLevel($currentLevel, $user->points);
-        $progress = $this->calculateProgress($currentLevel, $user->points);
+        $pointsToNextLevel = $this->getPointsToNextLevel($currentLevel, $userPoints);
+        $progress = $this->calculateProgress($currentLevel, $userPoints);
         
         // Obtener estadísticas de usuarios por nivel
         $userStats = $this->getUserStatsByLevel();
         
-        return Inertia::render('LevelSystem', [
-            'levels' => $levels,
+        // Crear la estructura userLevel que espera el componente
+        $userLevel = [
             'currentLevel' => $currentLevel,
-            'nextLevel' => $nextLevel,
+            'points' => $userPoints,
             'pointsToNextLevel' => $pointsToNextLevel,
-            'userPoints' => $user->points,
-            'progress' => $progress,
+            'totalPoints' => $userPoints,
+            'progressPercentage' => $progress,
+            'achievement' => $nextLevel ? "Próximo nivel: $nextLevel" : "Nivel Máximo Alcanzado"
+        ];
+        
+        return Inertia::render('LevelSystem', [
+            'userLevel' => $userLevel,
+            'allLevels' => $levels,
             'userStats' => $userStats
         ]);
     }

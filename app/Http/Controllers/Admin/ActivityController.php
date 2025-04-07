@@ -44,7 +44,13 @@ class ActivityController extends Controller
             'is_active' => 'boolean',
         ]);
         
-        Activity::create($validated);
+        // Agregar logging para depuración
+        \Log::info('Creando actividad', $validated);
+        
+        $activity = Activity::create($validated);
+        
+        // Verificar que se creó correctamente
+        \Log::info('Actividad creada', ['id' => $activity->id]);
         
         return redirect()->route('admin.activities')->with('success', 'Actividad creada correctamente');
     }

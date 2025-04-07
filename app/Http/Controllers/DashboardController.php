@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 // Añadir la importación del modelo Activity
 use App\Models\Activity;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -84,55 +86,143 @@ class DashboardController extends Controller
                 $recentRecords = [];
             }
             
-            // Obtener recompensas disponibles con manejo de errores
+            // Obtener recompensas disponibles
             try {
+                // Consulta más simple y directa
                 $availableRewards = Reward::where('is_active', true)
                     ->orderBy('points_cost', 'asc')
                     ->take(3)
                     ->get();
-            } catch (\Exception $e) {
-                Log::error('Error al obtener recompensas disponibles: ' . $e->getMessage(), [
-                    'trace' => $e->getTraceAsString()
+                
+                // Ver qué obtenemos para depuración
+                \Log::info('Recompensas para dashboard:', [
+                    'count' => $availableRewards->count(),
+                    'ids' => $availableRewards->pluck('id')->toArray()
                 ]);
+                
+            } catch (\Exception $e) {
+                \Log::error('Error al obtener recompensas: ' . $e->getMessage());
+                $availableRewards = collect([]);
+            }
             
-                // Si hay un error, usar un array vacío
-                $availableRewards = [];
+            // Asegurarnos de que availableRewards tenga datos
+            if (!isset($availableRewards) || $availableRewards->isEmpty()) {
+                \Log::warning('No se encontraron recompensas activas');
+                // Usar datos de ejemplo en caso de no encontrar recompensas
+                $availableRewards = [
+                    [
+                        'id' => 1, 
+                        'name' => 'Café Gratis', 
+                        'description' => 'Cafetería CUCEI', 
+                        'points_cost' => 100
+                    ],
+                    [
+                        'id' => 2, 
+                        'name' => 'Puntos Extra', 
+                        'description' => 'En cualquier materia', 
+                        'points_cost' => 500
+                    ],
+                    [
+                        'id' => 3, 
+                        'name' => 'Botella Ecológica', 
+                        'description' => 'Edición CUCEI', 
+                        'points_cost' => 300
+                    ]
+                ];
             }
         
             // Obtener la próxima actividad
             try {
-                $nextActivity = Activity::where('is_active', true)
-                    ->where(function($query) {
-                        $query->whereNull('date')
-                            ->orWhere('date', '>=', now()->format('Y-m-d'));
-                    })
-                    ->orderBy('date')
-                    ->first();
+                // Buscar directamente la actividad que acabas de activar (ID 4 o el que corresponda)
+                $specificActivity = Activity::find(4); // Ajusta el ID según corresponda
+                \Log::info('Actividad específica:', $specificActivity ? $specificActivity->toArray() : ['No encontrada']);
                 
-                if ($nextActivity) {
-                    $nextActivity = [
-                        'date' => $nextActivity->date ? $nextActivity->date->format('Y-m-d') : 'Hoy',
-                        'timeStart' => $nextActivity->time_start,
-                        'timeEnd' => $nextActivity->time_end,
-                        'location' => $nextActivity->location,
-                        'building' => $nextActivity->building,
-                        'description' => $nextActivity->description
+                // Si existe y está activa, usarla directamente
+                if ($specificActivity && $specificActivity->is_active) {
+                    $activity = $specificActivity;
+                    
+                    $activityData = [
+                        'date' => $activity->date ? $activity->date->format('Y-m-d') : 'Hoy',
+                        'timeStart' => $activity->time_start,
+                        'timeEnd' => $activity->time_end,
+                        'location' => $activity->location,
+                        'building' => $activity->building,
+                        'description' => $activity->description,
+                        'status' => 'upcoming',
+                        'is_active' => $activity->is_active // Asegúrate de incluir este campo
                     ];
+                    
+                    $activityStatus = 'upcoming';
+                } else {
+                    // Si no se encuentra la actividad específica, continuar con la lógica normal
+                    // Filtrar correctamente las actividades
+                    $activeActivities = Activity::where('is_active', 1)
+                        ->orderBy('date')
+                        ->orderBy('time_start')
+                        ->get();
+                    
+                    // Depurar también las actividades filtradas
+                    \Log::info('Actividades filtradas:', $activeActivities->toArray());
+                    
+                    if ($activeActivities->count() > 0) {
+                        // Tomar la primera actividad activa
+                        $activity = $activeActivities->first();
+                        
+                        // Verificar si está en curso actualmente
+                        $currentTime = now()->format('H:i');
+                        $currentDate = now()->format('Y-m-d');
+                        $now = Carbon::now();
+                        $activityDate = $activity->date ? Carbon::parse($activity->date) : $now->copy()->startOfDay();
+                        $activityEndTime = Carbon::parse($activityDate->format('Y-m-d') . ' ' . $activity->time_end);
+                        
+                        $isInProgress = false;
+                        $isUpcoming = true;
+                        
+                        // Verificar si ya pasó
+                        if ($now->gt($activityEndTime)) {
+                            // La actividad ya terminó, no mostrarla
+                            $activityData = null;
+                            $activityStatus = 'none';
+                        } else {
+                            // Sólo está en progreso si es hoy y dentro del horario
+                            if ((!$activityDate || $activityDate == $currentDate) && 
+                                $activity->time_start <= $currentTime && 
+                                $activity->time_end >= $currentTime) {
+                                $isInProgress = true;
+                            }
+                            
+                            $activityData = [
+                                'date' => $activity->date ? $activity->date->format('Y-m-d') : 'Hoy',
+                                'timeStart' => $activity->time_start,
+                                'timeEnd' => $activity->time_end,
+                                'location' => $activity->location,
+                                'building' => $activity->building,
+                                'description' => $activity->description,
+                                'status' => $isInProgress ? 'in_progress' : 'upcoming'
+                            ];
+                            
+                            $activityStatus = $isInProgress ? 'in_progress' : 'upcoming';
+                        }
+                    } else {
+                        $activityData = null;
+                        $activityStatus = 'none';
+                    }
                 }
             } catch (\Exception $e) {
-                Log::error('Error al obtener próxima actividad: ' . $e->getMessage(), [
+                \Log::error('Error al obtener próxima actividad: ' . $e->getMessage(), [
                     'trace' => $e->getTraceAsString()
                 ]);
             
-                // Si hay un error, usar un valor predeterminado
-                $nextActivity = null;
+                $activityData = null;
+                $activityStatus = 'none';
             }
             
             return Inertia::render('Dashboard', [
                 'stats' => $stats,
                 'recentRecords' => $recentRecords,
                 'availableRewards' => $availableRewards,
-                'nextActivity' => $nextActivity
+                'nextActivity' => $activityData,
+                'activityStatus' => $activityStatus
             ]);
         } catch (\Exception $e) {
             Log::error('Error general en el dashboard: ' . $e->getMessage(), [

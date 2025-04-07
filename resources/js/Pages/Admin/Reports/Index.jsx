@@ -45,14 +45,9 @@ export default function ReportsIndex({
     }
   }, [recyclingByMaterial, pointsDistribution, recyclingTrend, activitySummary])
 
-  const handleExportData = async () => {
-    try {
-      const response = await axios.post("/admin/reports/export")
-      alert(response.data.message)
-    } catch (err) {
-      console.error("Error al exportar datos:", err)
-      alert("Error al exportar datos. Por favor, intenta de nuevo.")
-    }
+  const handleExportData = () => {
+    // En lugar de usar axios, redireccionar directamente a la URL
+    window.location.href = route('admin.reports.export');
   }
 
   return (

@@ -7,6 +7,7 @@ use App\Models\RewardRedemption;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class RewardController extends Controller
 {
@@ -61,39 +62,42 @@ class RewardController extends Controller
         ]);
     }
     
-    public function redeem(Request $request, Reward $reward)
+    public function redeem(Reward $reward)
     {
-        $user = Auth::user();
-        
         // Verificar si el usuario tiene suficientes puntos
-        if ($user->points < $reward->points_cost) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No tienes suficientes puntos para canjear esta recompensa'
-            ], 400);
+        if (auth()->user()->points < $reward->points_cost) {
+            return back()->with('error', 'No tienes suficientes puntos para esta recompensa.');
         }
-        
-        // Generar código de canje
+
+        // Generar un código único de redención
         $redemptionCode = 'ECO-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-REWARD';
-        
-        // Crear registro de canje
-        $redemption = new RewardRedemption();
-        $redemption->user_id = $user->id;
-        $redemption->reward_id = $reward->id;
-        $redemption->points_spent = $reward->points_cost;
-        $redemption->redemption_code = $redemptionCode;
-        $redemption->status = 'pending';
-        $redemption->save();
-        
-        // Restar puntos al usuario
-        $user->points -= $reward->points_cost;
-        $user->save();
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Recompensa canjeada correctamente',
-            'redemption_code' => $redemptionCode
-        ]);
+
+        try {
+            // Crear el registro de redención
+            RewardRedemption::create([
+                'user_id' => auth()->id(),
+                'reward_id' => $reward->id,
+                'points_spent' => $reward->points_cost,
+                'redemption_code' => $redemptionCode,
+                'status' => 'pending',
+            ]);
+
+            // Actualizar puntos del usuario
+            $user = auth()->user();
+            $remainingPoints = $user->points - $reward->points_cost;
+            $user->points = $remainingPoints;
+            $user->save();
+
+            // Mostrar una vista HTML tradicional
+            return view('redemption-success', [
+                'code' => $redemptionCode,
+                'points' => $remainingPoints,
+                'reward' => $reward
+            ]);
+        } catch (\Exception $e) {
+            // Manejar errores
+            return back()->with('error', 'Ocurrió un error al procesar tu canje. Por favor, intenta nuevamente.');
+        }
     }
 }
 

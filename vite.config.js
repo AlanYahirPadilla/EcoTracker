@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vite';  // ¡Asegúrate de que esté importado!
+
 import laravel from 'laravel-vite-plugin';
 import react from '@vitejs/plugin-react';
 
@@ -25,5 +26,11 @@ export default defineConfig({
     esbuild: {
         loader: 'jsx',
         include: ['**/*.js', '**/*.jsx'],
+    },
+    server: {
+        host: 'localhost',
+        port: 5173,
+        strictPort: true,
+        cors: true,
     },
 });

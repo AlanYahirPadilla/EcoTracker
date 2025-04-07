@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class AdminDashboardController extends Controller
 {
@@ -179,20 +180,23 @@ class AdminDashboardController extends Controller
                     ];
                 });
 
-            $redemptions = RewardRedemption::with(['user', 'reward'])
-                ->orderBy('created_at', 'desc')
-                ->take(20)
+                $redemptions = RewardRedemption::with(['user', 'reward'])
+                ->where('status', 'completed')
+                ->orderBy('completed_at', 'desc')
                 ->get()
-                ->map(function ($redemption) {
+                ->map(function($redemption) {
                     return [
                         'id' => $redemption->id,
-                        'type' => 'redemption',
                         'user' => $redemption->user->name,
-                        'description' => "Canjeó puntos por {$redemption->reward->name}",
+                        'reward' => $redemption->reward->name,
+                        'code' => $redemption->redemption_code,
+                        'points' => $redemption->points_spent,
                         'status' => $redemption->status,
-                        'points' => $redemption->points_cost ?? 0,
-                        'redemption_code' => 'RD-' . str_pad($redemption->id, 6, '0', STR_PAD_LEFT),
-                        'date_formatted' => $redemption->created_at->format('d/m/Y H:i')
+                        'completed_at' => $redemption->completed_at ? 
+                            (is_string($redemption->completed_at) ? 
+                                $redemption->completed_at :
+                                $redemption->completed_at->format('d/m/Y')) : 
+                            null,
                     ];
                 });
 
@@ -233,13 +237,13 @@ class AdminDashboardController extends Controller
                         ],
                         'reward' => [
                             'name' => $redemption->reward->name,
-                            'category' => $redemption->reward->category ?? 'general'
+                            'category' => $redemption->reward->category 
                         ],
-                        'points_spent' => $redemption->points_cost ?? 0,
-                        'redemption_code' => 'RD-' . str_pad($redemption->id, 6, '0', STR_PAD_LEFT),
+                        'points_spent' => $redemption->points_spent,
+                        'redemption_code' => $redemption->redemption_code,
                         'status' => $redemption->status,
                         'date_formatted' => $redemption->created_at->format('d/m/Y'),
-                        'completed_at' => $redemption->completed_at ? $redemption->completed_at->format('d/m/Y H:i') : null
+                        'completed_at' => $redemption->completed_at,
                     ];
                 });
 
@@ -278,7 +282,7 @@ class AdminDashboardController extends Controller
                         ],
                         'quantity' => $record->quantity,
                         'points_earned' => $record->points_earned,
-                        'ticket_number' => 'TK-' . str_pad($record->id, 6, '0', STR_PAD_LEFT),
+                        'ticket_number' => $record->ticket_number,
                         'status' => $record->status,
                         'date_formatted' => $record->created_at->format('d/m/Y'),
                         'location' => $record->location ?? 'CUCEI',

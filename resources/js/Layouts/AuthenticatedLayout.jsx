@@ -16,6 +16,10 @@ import {
   ChevronRight,
   ChevronLeft,
   Star,
+  QrCode,
+  ArrowLeft,
+  CheckCheck,
+  Clock
 } from "lucide-react"
 
 export default function Authenticated({ user, header, children }) {
@@ -132,19 +136,47 @@ export default function Authenticated({ user, header, children }) {
 
           <div className="flex-1 overflow-y-auto p-4">
             <nav className="space-y-2">
-              {menuItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2"} p-2 rounded-md hover:bg-green-50 transition-colors ${
-                    window.location.pathname.startsWith(item.href) ? "bg-green-100 text-green-700" : "text-gray-700"
-                  }`}
-                  title={isCollapsed ? item.name : ""}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {!isCollapsed && <span>{item.name}</span>}
-                </Link>
-              ))}
+              {user.role === 'recycling_manager' ? (
+                <>
+                  <Link
+                    href="/recycling-manager/dashboard"
+                    className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2"} p-2 rounded-md hover:bg-green-50 transition-colors ${
+                      window.location.pathname.startsWith('/recycling-manager/dashboard') ? "bg-green-100 text-green-700" : "text-gray-700"
+                    }`}
+                    title={isCollapsed ? "Verificar Ticket de Canje" : ""}
+                  >
+                    <QrCode className="h-5 w-5 text-green-600" />
+                    {!isCollapsed && <span>Verificar Ticket de Canje</span>}
+                  </Link>
+                  
+                  <Link
+                    href="/recycling-manager/history"
+                    className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2"} p-2 rounded-md hover:bg-green-50 transition-colors ${
+                      window.location.pathname.startsWith('/recycling-manager/history') ? "bg-green-100 text-green-700" : "text-gray-700"
+                    }`}
+                    title={isCollapsed ? "Historial de Canjes" : ""}
+                  >
+                    <History className="h-5 w-5 text-green-600" />
+                    {!isCollapsed && <span>Historial de Canjes</span>}
+                  </Link>
+                </>
+              ) : (
+                <>
+                  {menuItems.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`flex items-center ${isCollapsed ? "justify-center" : "gap-2"} p-2 rounded-md hover:bg-green-50 transition-colors ${
+                        window.location.pathname.startsWith(item.href) ? "bg-green-100 text-green-700" : "text-gray-700"
+                      }`}
+                      title={isCollapsed ? item.name : ""}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {!isCollapsed && <span>{item.name}</span>}
+                    </Link>
+                  ))}
+                </>
+              )}
 
               {user.role === "admin" && (
                 <Link
@@ -199,7 +231,7 @@ export default function Authenticated({ user, header, children }) {
       {/* Contenido principal */}
       <div className={`flex-1 transition-all duration-300 ${isCollapsed ? "md:ml-16" : "md:ml-64"}`}>
         {/* Barra superior */}
-        <nav className="bg-green-600 text-white">
+        <div className="bg-gradient-to-r from-green-600 to-green-500 shadow-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
@@ -212,37 +244,24 @@ export default function Authenticated({ user, header, children }) {
                 </button>
 
                 <div className="flex items-center gap-2">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                    />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                   </svg>
-                  <h1 className="text-2xl font-bold">EcoTracker</h1>
-                  {user.role === "admin" && (
-                    <span className="bg-white text-green-600 px-2 py-0.5 rounded text-xs font-bold">ADMIN</span>
-                  )}
+                  <span className="font-bold text-xl text-white tracking-wider">EcoTracker</span>
                 </div>
               </div>
 
               <div className="hidden sm:flex sm:items-center sm:ml-6">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1">
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="font-bold">{user.points || 0} puntos</span>
+                <div className="flex items-center space-x-4">
+                  <div className="bg-green-500 py-1 px-3 rounded-full flex items-center shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-300 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <span className="text-white font-medium">{new Intl.NumberFormat().format(user.points)} puntos</span>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{user.name}</span>
-                  </div>
+                  <span className="text-white font-medium">{user.name}</span>
                 </div>
               </div>
 
@@ -259,18 +278,44 @@ export default function Authenticated({ user, header, children }) {
 
           <div className={(showingNavigationDropdown ? "block" : "hidden") + " sm:hidden"}>
             <div className="pt-2 pb-3 space-y-1">
-              {menuItems.map((item) => (
-                <ResponsiveNavLink
-                  key={item.name}
-                  href={item.href}
-                  active={window.location.pathname.startsWith(item.href)}
-                >
-                  <div className="flex items-center gap-2">
-                    <item.icon className="h-4 w-4" />
-                    <span>{item.name}</span>
-                  </div>
-                </ResponsiveNavLink>
-              ))}
+              {user.role === 'recycling_manager' ? (
+                <>
+                  <ResponsiveNavLink
+                    href="/recycling-manager/dashboard"
+                    active={window.location.pathname.startsWith('/recycling-manager/dashboard')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <QrCode className="h-4 w-4" />
+                      <span>Verificar Ticket de Canje</span>
+                    </div>
+                  </ResponsiveNavLink>
+                  
+                  <ResponsiveNavLink
+                    href="/recycling-manager/history"
+                    active={window.location.pathname.startsWith('/recycling-manager/history')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <History className="h-4 w-4" />
+                      <span>Historial de Canjes</span>
+                    </div>
+                  </ResponsiveNavLink>
+                </>
+              ) : (
+                <>
+                  {menuItems.map((item) => (
+                    <ResponsiveNavLink
+                      key={item.name}
+                      href={item.href}
+                      active={window.location.pathname.startsWith(item.href)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.name}</span>
+                      </div>
+                    </ResponsiveNavLink>
+                  ))}
+                </>
+              )}
             </div>
 
             <div className="pt-4 pb-1 border-t border-gray-200">
@@ -295,7 +340,7 @@ export default function Authenticated({ user, header, children }) {
               </div>
             </div>
           </div>
-        </nav>
+        </div>
 
         {header && (
           <header className="bg-white shadow">
@@ -303,7 +348,11 @@ export default function Authenticated({ user, header, children }) {
           </header>
         )}
 
-        <main className="py-6 px-4 sm:px-6 lg:px-8">{children}</main>
+        <main className="py-6 px-4 sm:px-6 lg:px-8">
+          <div className="bg-[#f8f6f2]">
+            {children}
+          </div>
+        </main>
       </div>
 
       {/* Overlay para cerrar el sidebar al hacer clic fuera (solo en móvil) */}

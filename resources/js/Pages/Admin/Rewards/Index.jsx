@@ -4,7 +4,7 @@ import AdminLayout from "@/Layouts/AdminLayout"
 import { Head } from "@inertiajs/react"
 import { BarChart3, PieChart, LineChart, Download } from "lucide-react"
 
-export default function ReportsIndex({ auth }) {
+export default function RewardsIndex({ auth, rewards }) {
   return (
     <AdminLayout
       user={auth.user}

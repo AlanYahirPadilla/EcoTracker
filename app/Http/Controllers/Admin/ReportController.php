@@ -387,20 +387,132 @@ class ReportController extends Controller
     public function exportData(Request $request)
     {
         try {
-            // Aquí implementaríamos la lógica real para exportar datos
-            // Por ejemplo, generar un archivo CSV o Excel
+            // Formato solicitado (CSV por defecto)
+            $format = $request->input('format', 'csv');
             
-            // Simulación de exportación exitosa
-            return response()->json([
-                'success' => true, 
-                'message' => 'Datos exportados correctamente'
-            ]);
+            // Preparar los datos para exportación
+            $recyclingData = $this->prepareRecyclingDataForExport();
+            $usersData = $this->prepareUsersDataForExport();
+            $redemptionsData = $this->prepareRedemptionsDataForExport();
+            
+            if ($format === 'csv') {
+                // Generar CSV
+                $filename = 'eco_tracker_report_' . date('Y-m-d') . '.csv';
+                $headers = [
+                    'Content-Type' => 'text/csv; charset=UTF-8',
+                    'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+                    'Cache-Control' => 'no-cache, no-store, must-revalidate',
+                    'Pragma' => 'no-cache',
+                    'Expires' => '0'
+                ];
+                
+                $callback = function() use ($recyclingData, $usersData, $redemptionsData) {
+                    $file = fopen('php://output', 'w');
+                    // UTF-8 BOM para compatibilidad con Excel
+                    fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+                    
+                    // Sección de reciclaje
+                    fputcsv($file, ['REPORTE DE RECICLAJE']);
+                    fputcsv($file, ['Material', 'Cantidad', 'Puntos', 'Fecha']);
+                    foreach ($recyclingData as $row) {
+                        fputcsv($file, $row);
+                    }
+                    fputcsv($file, []); // Línea en blanco
+                    
+                    // Sección de usuarios
+                    fputcsv($file, ['REPORTE DE USUARIOS']);
+                    fputcsv($file, ['Nombre', 'Email', 'Puntos', 'Fecha de registro']);
+                    foreach ($usersData as $row) {
+                        fputcsv($file, $row);
+                    }
+                    fputcsv($file, []); // Línea en blanco
+                    
+                    // Sección de canjes
+                    fputcsv($file, ['REPORTE DE CANJES']);
+                    fputcsv($file, ['Usuario', 'Recompensa', 'Puntos', 'Estado', 'Fecha']);
+                    foreach ($redemptionsData as $row) {
+                        fputcsv($file, $row);
+                    }
+                    
+                    fclose($file);
+                };
+                
+                return response()->stream($callback, 200, $headers);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Formato no soportado'
+                ], 400);
+            }
         } catch (\Exception $e) {
+            \Log::error('Error al exportar datos: ' . $e->getMessage());
             return response()->json([
                 'success' => false, 
                 'message' => 'Error al exportar datos: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    // Métodos auxiliares para preparar los datos de exportación
+    private function prepareRecyclingDataForExport()
+    {
+        $records = RecyclingRecord::with(['user', 'material'])
+            ->where('status', 'approved')
+            ->orderBy('created_at', 'desc')
+            ->take(500) // Limitar a 500 registros para evitar problemas de memoria
+            ->get();
+        
+        $data = [];
+        foreach ($records as $record) {
+            $data[] = [
+                $record->material->name ?? 'N/A',
+                $record->quantity,
+                $record->points_earned,
+                $record->created_at->format('d/m/Y H:i')
+            ];
+        }
+        
+        return $data;
+    }
+
+    private function prepareUsersDataForExport()
+    {
+        $users = User::orderBy('points', 'desc')
+            ->take(200) // Limitar a 200 usuarios
+            ->get();
+        
+        $data = [];
+        foreach ($users as $user) {
+            $data[] = [
+                $user->name,
+                $user->email,
+                $user->points,
+                $user->created_at->format('d/m/Y')
+            ];
+        }
+        
+        return $data;
+    }
+
+    private function prepareRedemptionsDataForExport()
+    {
+        $redemptions = RewardRedemption::with(['user', 'reward'])
+            ->orderBy('created_at', 'desc')
+            ->take(300) // Limitar a 300 canjes
+            ->get();
+        
+        $data = [];
+        foreach ($redemptions as $redemption) {
+            $data[] = [
+                $redemption->user->name ?? 'N/A',
+                $redemption->reward->name ?? 'N/A',
+                $redemption->points_spent,
+                $redemption->status,
+                $redemption->created_at->format('d/m/Y')
+            ];
+        }
+        
+        return $data;
     }
 }
 

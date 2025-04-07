@@ -18,3 +18,4 @@ createInertiaApp({
         color: '#16a34a',
     },
 });
+import './error-handler';

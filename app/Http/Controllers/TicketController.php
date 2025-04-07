@@ -27,7 +27,7 @@ class TicketController extends Controller
             ->map(function ($record) {
                 return [
                     'id' => $record->id,
-                    'code' => $record->ticket_number,
+                    'ticket_number' => $record->ticket_number,
                     'date' => $record->created_at->format('Y-m-d'),
                     'material' => $record->material->name,
                     'quantity' => $record->quantity,

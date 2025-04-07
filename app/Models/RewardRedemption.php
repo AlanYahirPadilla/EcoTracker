@@ -26,5 +26,11 @@ class RewardRedemption extends Model
   {
       return $this->belongsTo(Reward::class);
   }
+  public function getCompletedAtAttribute($value)
+{
+    if (!$value) return null;
+    if (is_string($value)) return $value;
+    return $value->format('d/m/Y');
+}
 }
 
